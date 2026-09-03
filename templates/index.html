@@ -17,7 +17,7 @@
             
             <div class="flex items-center gap-3">
                 <div id="user-session-bar" class="flex items-center gap-3">
-                    <!-- Loaded dynamically via checkAuth() -->
+                    <!-- Session details dynamically rendered -->
                 </div>
                 <div id="admin-actions" class="hidden flex gap-2">
                     <button onclick="deleteCampaign()" class="bg-red-950 hover:bg-red-900 text-red-300 border border-red-800 text-xs font-semibold px-3 py-2 rounded-lg transition-all">🗑️ Delete Campaign</button>
@@ -84,7 +84,7 @@
                     <p class="text-xs text-slate-400 mb-2">Milestone Target: <strong id="milestone-target-text" class="text-slate-200">$0.00</strong></p>
                 </div>
                 <div id="admin-release-box">
-                    <button id="release-btn" onclick="releaseFunds()" class="w-full bg-emerald-600 hover:bg-emerald-500 font-semibold py-2 rounded-lg transition-all disabled:opacity-50">Approve & Pay</button>
+                    <button id="release-btn" onclick="releaseFunds()" class="w-full bg-emerald-600 hover:bg-emerald-500 font-semibold py-2 rounded-lg transition-all">Approve & Pay</button>
                 </div>
             </div>
         </div>
@@ -151,7 +151,7 @@
         </div>
     </div>
 
-    <!-- JavaScript Logic -->
+    <!-- JavaScript Script -->
     <script>
         let campaigns = [];
         let selectedCampaign = null;
@@ -316,7 +316,13 @@
         }
 
         async function donate() {
-            if (!currentUser) return showAlert("You must be signed in to deposit funds.", true);
+            // Check if user is logged in before allowing a deposit
+            if (!currentUser) {
+                alert("Please log in or create an account to make a donation.");
+                window.location.href = '/login';
+                return;
+            }
+
             if (!selectedCampaign) return showAlert("Please select a campaign.", true);
 
             const amountInput = document.getElementById('donate-amount');
@@ -331,6 +337,11 @@
             const data = await res.json();
 
             if (!res.ok) {
+                if (res.status === 401) {
+                    alert("Your session has expired. Please log in again.");
+                    window.location.href = '/login';
+                    return;
+                }
                 showAlert(data.error || "Deposit failed", true);
                 return;
             }

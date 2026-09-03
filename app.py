@@ -58,7 +58,6 @@ class Donation(db.Model):
 def seed_database():
     with app.app_context():
         db.create_all()
-        # Seed default Admin and Donor users
         if not User.query.first():
             admin_user = User(
                 username="admin", 
@@ -229,8 +228,9 @@ def delete_campaign(campaign_id):
 
 @app.route('/api/donate', methods=['POST'])
 def donate():
+    # Strict backend check enforcing donor authentication
     if 'user_id' not in session:
-        return jsonify({"error": "Please log in to make a donation."}), 401
+        return jsonify({"error": "Unauthorized. Please sign in or register to make a donation."}), 401
 
     data = request.get_json()
     campaign_id = data.get('campaign_id')

@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Escrow Crowdfunding Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="min-h-screen bg-slate-950 text-slate-100 p-8 font-sans">
+    <div class="max-w-4xl mx-auto">
+        
+        <!-- Header & Session Control -->
+        <div class="flex justify-between items-center mb-8 border-b border-slate-800 pb-6">
+            <div>
+                <h1 class="text-2xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">Escrow Platform</h1>
+                <p class="text-xs text-slate-400 mt-1">Blockchain-verified campaign milestones</p>
+            </div>
+            
+            <div class="flex items-center gap-3">
+                <div id="user-session-bar" class="flex items-center gap-3">
+                    <!-- Loaded dynamically via checkAuth() -->
+                </div>
+                <div id="admin-actions" class="hidden flex gap-2">
+                    <button onclick="deleteCampaign()" class="bg-red-950 hover:bg-red-900 text-red-300 border border-red-800 text-xs font-semibold px-3 py-2 rounded-lg transition-all">🗑️ Delete Campaign</button>
+                    <a href="/create" class="bg-blue-600 hover:bg-blue-500 text-xs font-semibold px-4 py-2 rounded-lg transition-all flex items-center">+ New Campaign</a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Campaign & Milestone Selection -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+            <div class="bg-slate-900 p-4 rounded-xl border border-slate-800">
+                <label class="block text-xs font-semibold text-slate-400 uppercase mb-2">Select Campaign</label>
+                <select id="campaign-select" onchange="switchCampaign()" class="w-full bg-slate-950 border border-slate-800 p-3 rounded-lg text-slate-100 focus:outline-none focus:border-blue-500"></select>
+            </div>
+            <div class="bg-slate-900 p-4 rounded-xl border border-slate-800">
+                <label class="block text-xs font-semibold text-slate-400 uppercase mb-2">Select Milestone</label>
+                <select id="milestone-select" onchange="switchMilestone()" class="w-full bg-slate-950 border border-slate-800 p-3 rounded-lg text-slate-100 focus:outline-none focus:border-blue-500"></select>
+            </div>
+        </div>
+
+        <!-- Metrics Cards -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+            <div class="bg-slate-900 p-4 rounded-xl border border-slate-800 border-l-4 border-l-blue-500">
+                <p class="text-xs uppercase text-slate-400">Escrow Balance</p>
+                <p id="escrow-balance" class="text-xl font-bold text-blue-400">$0.00</p>
+            </div>
+            <div class="bg-slate-900 p-4 rounded-xl border border-slate-800 border-l-4 border-l-emerald-500">
+                <p class="text-xs uppercase text-slate-400">NGO Reputation</p>
+                <p id="ngo-reputation" class="text-xl font-bold text-emerald-400">100</p>
+            </div>
+            <div class="bg-slate-900 p-4 rounded-xl border border-slate-800 border-l-4 border-l-purple-500">
+                <p class="text-xs uppercase text-slate-400">Vendor Balance</p>
+                <p id="vendor-balance" class="text-xl font-bold text-purple-400">$0.00</p>
+            </div>
+            <div class="bg-slate-900 p-4 rounded-xl border border-slate-800 border-l-4 border-l-amber-500">
+                <p class="text-xs uppercase text-slate-400">Milestone Status</p>
+                <p id="milestone-status" class="text-base font-bold text-amber-400">LOCKED</p>
+            </div>
+        </div>
+
+        <!-- Action Portals -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            <div class="bg-slate-900 p-6 rounded-xl border border-slate-800 flex flex-col justify-between">
+                <div>
+                    <h2 class="font-bold text-md mb-3 border-b border-slate-800 pb-2">1. Deposit Funds</h2>
+                    <label class="text-xs text-slate-400 block mb-1">Amount ($)</label>
+                    <input id="donate-amount" type="number" value="1000" class="w-full bg-slate-950 border border-slate-800 p-2 rounded-lg mb-4 text-slate-100">
+                </div>
+                <button onclick="donate()" class="w-full bg-blue-600 hover:bg-blue-500 font-semibold py-2 rounded-lg transition-all">Deposit</button>
+            </div>
+
+            <div class="bg-slate-900 p-6 rounded-xl border border-slate-800 flex flex-col justify-between">
+                <div>
+                    <h2 class="font-bold text-md mb-3 border-b border-slate-800 pb-2">2. Submit Proof</h2>
+                    <label class="text-xs text-slate-400 block mb-1">Invoice / Document URL</label>
+                    <input id="proof-url" type="text" value="https://proof.org/invoice.pdf" class="w-full bg-slate-950 border border-slate-800 p-2 rounded-lg mb-4 text-slate-100">
+                </div>
+                <button onclick="submitProof()" class="w-full bg-amber-600 hover:bg-amber-500 font-semibold py-2 rounded-lg transition-all">Submit Proof</button>
+            </div>
+
+            <div class="bg-slate-900 p-6 rounded-xl border border-slate-800 flex flex-col justify-between">
+                <div>
+                    <h2 class="font-bold text-md mb-3 border-b border-slate-800 pb-2">3. Admin Audit</h2>
+                    <p class="text-xs text-slate-400 mb-2">Milestone Target: <strong id="milestone-target-text" class="text-slate-200">$0.00</strong></p>
+                </div>
+                <div id="admin-release-box">
+                    <button id="release-btn" onclick="releaseFunds()" class="w-full bg-emerald-600 hover:bg-emerald-500 font-semibold py-2 rounded-lg transition-all disabled:opacity-50">Approve & Pay</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Recent Activity Table -->
+        <div class="bg-slate-900 p-6 rounded-xl border border-slate-800 mb-8">
+            <h2 class="font-bold text-md mb-4 border-b border-slate-800 pb-2">Recent Donations & Receipts</h2>
+            <div id="donations-list" class="space-y-3">
+                <p class="text-xs text-slate-500">Loading donation activity...</p>
+            </div>
+        </div>
+
+        <!-- Global Alert Box -->
+        <div id="alert-box" class="p-4 rounded-lg bg-slate-900 border border-slate-800 text-center font-medium hidden"></div>
+    </div>
+
+    <!-- Deposit Receipt Modal -->
+    <div id="receipt-modal" class="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50 hidden">
+        <div class="max-w-md w-full bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-2xl relative">
+            <div class="bg-emerald-950/60 border border-emerald-800 text-emerald-400 text-center py-2 px-4 rounded-lg mb-4 font-bold text-sm flex items-center justify-center gap-2">
+                <span>✓</span> Payment Submitted
+            </div>
+
+            <div class="flex justify-between items-start border-b border-slate-800 pb-4 mb-4">
+                <div>
+                    <h2 class="text-xl font-extrabold text-blue-400">DONATION RECEIPT</h2>
+                    <p class="text-xs text-slate-400 mt-0.5">Escrow Verification Confirmed</p>
+                </div>
+                <span id="modal-receipt-no" class="bg-blue-950 border border-blue-800 text-blue-300 text-xs px-2.5 py-1 rounded-full font-mono font-bold"></span>
+            </div>
+
+            <div class="space-y-3 mb-6">
+                <div>
+                    <p class="text-[10px] uppercase font-semibold text-slate-500">Transaction Hash</p>
+                    <p id="modal-hash" class="text-xs font-mono bg-slate-950 p-2.5 rounded border border-slate-800 text-blue-300 break-all select-all mt-1"></p>
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <p class="text-[10px] uppercase font-semibold text-slate-500">Amount Paid</p>
+                        <p id="modal-amount" class="text-xl font-bold text-emerald-400">$0.00</p>
+                    </div>
+                    <div>
+                        <p class="text-[10px] uppercase font-semibold text-slate-500">Timestamp</p>
+                        <p id="modal-timestamp" class="text-xs font-semibold text-slate-200 mt-1"></p>
+                    </div>
+                </div>
+
+                <div class="border-t border-slate-800 pt-3">
+                    <p class="text-[10px] uppercase font-semibold text-slate-500">Campaign Title</p>
+                    <p id="modal-campaign" class="text-sm font-semibold text-slate-100"></p>
+                </div>
+
+                <div>
+                    <p class="text-[10px] uppercase font-semibold text-slate-500">Beneficiary NGO</p>
+                    <p id="modal-ngo" class="text-xs font-semibold text-slate-300"></p>
+                </div>
+            </div>
+
+            <div class="flex gap-3">
+                <button onclick="window.print()" class="flex-1 bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 rounded-lg text-sm transition-all">Print / PDF</button>
+                <button onclick="closeReceiptModal()" class="bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold px-4 py-2 rounded-lg text-sm transition-all">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- JavaScript Logic -->
+    <script>
+        let campaigns = [];
+        let selectedCampaign = null;
+        let selectedMilestone = null;
+        let currentUser = null;
+
+        async function checkAuth() {
+            const res = await fetch('/api/me');
+            const data = await res.json();
+            const sessionBar = document.getElementById('user-session-bar');
+            const adminActions = document.getElementById('admin-actions');
+
+            if (data.logged_in) {
+                currentUser = data;
+                sessionBar.innerHTML = `
+                    <div class="text-right">
+                        <p class="text-xs font-semibold text-slate-200">👤 ${data.username}</p>
+                        <span class="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded ${data.role === 'admin' ? 'bg-purple-950 text-purple-300 border border-purple-800' : 'bg-emerald-950 text-emerald-300 border border-emerald-800'}">${data.role}</span>
+                    </div>
+                    <button onclick="logout()" class="bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs px-3 py-1.5 rounded-lg border border-slate-700">Logout</button>
+                `;
+
+                if (data.role === 'admin') {
+                    adminActions.classList.remove('hidden');
+                } else {
+                    adminActions.classList.add('hidden');
+                }
+            } else {
+                currentUser = null;
+                adminActions.classList.add('hidden');
+                sessionBar.innerHTML = `
+                    <a href="/login" class="bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold px-3 py-1.5 rounded-lg border border-slate-700">Sign In</a>
+                    <a href="/signup" class="bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition-all">Sign Up</a>
+                `;
+            }
+        }
+
+        async function logout() {
+            await fetch('/api/logout', { method: 'POST' });
+            checkAuth();
+            showAlert("Logged out successfully.");
+        }
+
+        async function loadCampaigns() {
+            const res = await fetch('/api/campaigns');
+            campaigns = await res.json();
+            const select = document.getElementById('campaign-select');
+            select.innerHTML = '';
+
+            if (campaigns.length === 0) {
+                const opt = document.createElement('option');
+                opt.innerText = "No Campaigns Available";
+                select.appendChild(opt);
+                selectedCampaign = null;
+                selectedMilestone = null;
+                updateUI();
+                return;
+            }
+
+            campaigns.forEach((c, idx) => {
+                const opt = document.createElement('option');
+                opt.value = idx;
+                opt.innerText = `${c.title} (NGO: ${c.ngo_name})`;
+                select.appendChild(opt);
+            });
+
+            switchCampaign();
+        }
+
+        function switchCampaign() {
+            const select = document.getElementById('campaign-select');
+            if (!campaigns.length || select.value === "") return;
+
+            const idx = select.value;
+            selectedCampaign = campaigns[idx];
+            const msSelect = document.getElementById('milestone-select');
+            msSelect.innerHTML = '';
+
+            if (selectedCampaign && selectedCampaign.milestones.length > 0) {
+                selectedCampaign.milestones.forEach((m, mIdx) => {
+                    const opt = document.createElement('option');
+                    opt.value = mIdx;
+                    opt.innerText = `${m.title} ($${m.target_amount.toLocaleString()})`;
+                    msSelect.appendChild(opt);
+                });
+                selectedMilestone = selectedCampaign.milestones[0];
+            } else {
+                selectedMilestone = null;
+            }
+            updateUI();
+        }
+
+        function switchMilestone() {
+            if (!selectedCampaign || !selectedCampaign.milestones.length) return;
+            const mIdx = document.getElementById('milestone-select').value;
+            selectedMilestone = selectedCampaign.milestones[mIdx];
+            updateUI();
+        }
+
+        function updateUI() {
+            if (!selectedCampaign) {
+                document.getElementById('escrow-balance').innerText = "$0.00";
+                document.getElementById('ngo-reputation').innerText = "0";
+                document.getElementById('vendor-balance').innerText = "$0.00";
+                document.getElementById('milestone-status').innerText = "NO CAMPAIGN";
+                document.getElementById('milestone-target-text').innerText = "$0.00";
+                return;
+            }
+
+            document.getElementById('escrow-balance').innerText = `$${selectedCampaign.escrow_balance.toLocaleString('en-US', {minimumFractionDigits: 2})}`;
+            document.getElementById('ngo-reputation').innerText = selectedCampaign.ngo_reputation;
+
+            if (selectedMilestone) {
+                document.getElementById('vendor-balance').innerText = `$${selectedMilestone.vendor_balance.toLocaleString('en-US', {minimumFractionDigits: 2})}`;
+                document.getElementById('milestone-status').innerText = selectedMilestone.status;
+                document.getElementById('milestone-target-text').innerText = `$${selectedMilestone.target_amount.toLocaleString('en-US', {minimumFractionDigits: 2})}`;
+            } else {
+                document.getElementById('vendor-balance').innerText = "$0.00";
+                document.getElementById('milestone-status').innerText = "NO MILESTONES";
+                document.getElementById('milestone-target-text').innerText = "$0.00";
+            }
+        }
+
+        function showAlert(msg, isError = false) {
+            const box = document.getElementById('alert-box');
+            box.classList.remove('hidden', 'border-red-500', 'border-emerald-500', 'text-red-400', 'text-emerald-400');
+            box.classList.add(isError ? 'border-red-500' : 'border-emerald-500', isError ? 'text-red-400' : 'text-emerald-400');
+            box.innerText = msg;
+        }
+
+        async function loadDonations() {
+            const res = await fetch('/api/donations');
+            const donations = await res.json();
+            const listContainer = document.getElementById('donations-list');
+            listContainer.innerHTML = '';
+
+            if (donations.length === 0) {
+                listContainer.innerHTML = '<p class="text-xs text-slate-500">No recent donations found.</p>';
+                return;
+            }
+
+            donations.forEach(d => {
+                const shortHash = d.txn_hash !== "N/A" ? (d.txn_hash.substring(0, 10) + '...' + d.txn_hash.substring(d.txn_hash.length - 6)) : 'N/A';
+                const item = document.createElement('div');
+                item.className = 'flex justify-between items-center bg-slate-950 p-3 rounded-lg border border-slate-800';
+                item.innerHTML = `
+                    <div>
+                        <p class="text-sm font-semibold text-slate-200">${d.campaign_title}</p>
+                        <p class="text-xs text-emerald-400 font-medium">+$${parseFloat(d.amount).toLocaleString('en-US', {minimumFractionDigits: 2})} <span class="text-slate-500 text-[11px]">(by ${d.donor_name})</span></p>
+                        <p class="text-[10px] font-mono text-slate-500 mt-1">Receipt: ${d.receipt_no} | Hash: ${shortHash}</p>
+                    </div>
+                    <div>
+                        ${d.txn_hash !== 'N/A' ? `
+                            <a href="/receipt/${d.txn_hash}" target="_blank" class="bg-blue-950 hover:bg-blue-900 text-blue-300 border border-blue-800 text-xs px-3 py-1.5 rounded transition-all">
+                                Receipt 📄
+                            </a>
+                        ` : ''}
+                    </div>
+                `;
+                listContainer.appendChild(item);
+            });
+        }
+
+        async function donate() {
+            if (!currentUser) return showAlert("You must be signed in to deposit funds.", true);
+            if (!selectedCampaign) return showAlert("Please select a campaign.", true);
+
+            const amountInput = document.getElementById('donate-amount');
+            const amount = amountInput ? amountInput.value : 0;
+
+            const res = await fetch('/api/donate', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ campaign_id: selectedCampaign.campaign_id, amount })
+            });
+
+            const data = await res.json();
+
+            if (!res.ok) {
+                showAlert(data.error || "Deposit failed", true);
+                return;
+            }
+
+            document.getElementById('modal-receipt-no').innerText = data.receipt_no;
+            document.getElementById('modal-hash').innerText = data.txn_hash;
+            document.getElementById('modal-amount').innerText = `$${parseFloat(data.amount).toLocaleString('en-US', {minimumFractionDigits: 2})}`;
+            document.getElementById('modal-timestamp').innerText = data.timestamp;
+            document.getElementById('modal-campaign').innerText = data.campaign_title;
+            document.getElementById('modal-ngo').innerText = data.ngo_name;
+            document.getElementById('receipt-modal').classList.remove('hidden');
+
+            loadCampaigns();
+            loadDonations();
+        }
+
+        function closeReceiptModal() {
+            document.getElementById('receipt-modal').classList.add('hidden');
+        }
+
+        async function submitProof() {
+            if (!selectedMilestone) return showAlert("No active milestone selected", true);
+            const proof_url = document.getElementById('proof-url').value;
+            const res = await fetch('/api/submit-proof', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ milestone_id: selectedMilestone.id, proof_url })
+            });
+            const data = await res.json();
+            showAlert(data.message);
+            loadCampaigns();
+        }
+
+        async function releaseFunds() {
+            if (!currentUser || currentUser.role !== 'admin') {
+                return showAlert("Only Admins can approve and release escrow funds.", true);
+            }
+            if (!selectedMilestone) return showAlert("No active milestone selected", true);
+
+            const res = await fetch('/api/release-funds', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ milestone_id: selectedMilestone.id })
+            });
+            const data = await res.json();
+            if (data.error) showAlert(data.error, true);
+            else showAlert(data.message);
+            loadCampaigns();
+        }
+
+        async function deleteCampaign() {
+            if (!selectedCampaign) return showAlert("No campaign selected.", true);
+            if (!confirm(`Delete campaign '${selectedCampaign.title}'?`)) return;
+
+            const res = await fetch(`/api/delete-campaign/${selectedCampaign.campaign_id}`, { method: 'DELETE' });
+            const data = await res.json();
+
+            if (res.ok) {
+                showAlert(data.message);
+                loadCampaigns();
+                loadDonations();
+            } else {
+                showAlert(data.error || "Failed to delete campaign.", true);
+            }
+        }
+
+        checkAuth();
+        loadCampaigns();
+        loadDonations();
+    </script>
+</body>
+</html>
